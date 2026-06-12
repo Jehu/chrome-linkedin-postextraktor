@@ -13,6 +13,7 @@
   let cancelled = false;
   let running = false;
   let includeImages = true;
+  let throttled = null; // 'checkpoint' | 'banner' | 'stall', wenn LinkedIn drosselt
 
   // ---------------------------------------------------------------- Messaging
 
@@ -269,6 +270,9 @@
     }
   }
 
+  // Wartet, bis der Ladevorgang wirklich abgeschlossen ist (Spinner weg).
+  // Gibt true zurück, wenn ein echter Idle-Zustand erreicht wurde, false bei
+  // Timeout (Hinweis auf hängenden/gedrosselten Request).
   async function waitForIdle(scope, timeout = 10000) {
     const t0 = Date.now();
     await SLEEP(400);
@@ -276,9 +280,40 @@
       const spinner = (scope || document).querySelector(
         '.artdeco-loader, [class*="comments"][class*="loading"]'
       );
-      if (!spinner || !isVisible(spinner)) return;
+      if (!spinner || !isVisible(spinner)) {
+        // Kurzes Settle, damit frisch gerenderte Knoten stehen, bevor geerntet wird
+        await SLEEP(250);
+        return true;
+      }
       await SLEEP(300);
     }
+    return false;
+  }
+
+  // ----------------------------------------------------- Drossel-Erkennung
+
+  // Texte, mit denen LinkedIn Rate-Limiting / Sicherheitsprüfungen meldet
+  const RE_THROTTLE_TEXT =
+    /vorübergehend eingeschränkt|ungewöhnliche aktivität|zu viele anfragen|bitte versuchen sie es (später|erneut)|unusual activity|too many requests|rate limit|try again later|temporarily (restricted|limited|unavailable)|wir konnten .* nicht laden|couldn'?t load|something went wrong/i;
+
+  // Erkennt, ob LinkedIn die Seite gerade drosselt oder auf eine
+  // Sicherheits-/Login-Hürde umgeleitet hat. Gibt einen Grund-String oder
+  // null zurück.
+  function detectThrottle() {
+    // 1) Auf Checkpoint / Authwall / Login umgeleitet?
+    const path = location.pathname + location.search;
+    if (/\/checkpoint\/|\/authwall|\/uas\/login|\/error/i.test(path)) {
+      return 'checkpoint';
+    }
+    // 2) Sichtbares Fehler-/Drossel-Banner (Toast, Alert, Error-Container)?
+    const banners = document.querySelectorAll(
+      '.artdeco-toast-item, [role="alert"], .error-container, ' +
+        '[class*="error"][class*="message"], [class*="rate-limit"]'
+    );
+    for (const b of banners) {
+      if (isVisible(b) && RE_THROTTLE_TEXT.test(textOf(b))) return 'banner';
+    }
+    return null;
   }
 
   // --------------------------------------------------------------- Post-Root
@@ -576,6 +611,7 @@
     running = true;
     harvested.clear();
     harvestSeq = 0;
+    throttled = null;
     await chrome.storage.local.set({ lipx_state: 'running', lipx_error: null });
     report('Suche Post auf der Seite …');
 
@@ -595,38 +631,66 @@
     await ensureChronologicalSort(cScope === root ? root : cScope.parentElement || root);
 
     // Expansions-Schleife: so lange klicken/scrollen, bis 3 Runden lang
-    // nichts Neues mehr kommt.
+    // nichts Neues mehr kommt. Bewusst sanft: pro Runde nur EIN Nachlade-
+    // Klick, danach auf echten Idle-Zustand warten. So wird die Netzwerklast
+    // serialisiert statt in Bursts abgefeuert – schont LinkedIns Server und
+    // fällt weniger als Bot-Verhalten auf.
     let stableRounds = 0;
     let rounds = 0;
     let lastCount = 0;
+    let stalls = 0; // aufeinanderfolgende hängende Ladevorgänge
     while (!cancelled && rounds < 600) {
       rounds++;
       let acted = 0;
 
-      // "Weitere Kommentare laden"
-      for (const b of findLoadMoreCommentButtons(cScope).slice(0, 2)) {
+      // Vor jeder Runde prüfen, ob LinkedIn drosselt / umgeleitet hat
+      const t = detectThrottle();
+      if (t) {
+        throttled = t;
+        break;
+      }
+
+      // "Weitere Kommentare laden" – nur EIN Button pro Runde, danach warten,
+      // bis der Ladevorgang wirklich fertig ist (ein Netzwerk-Request nach
+      // dem anderen statt mehrere gleichzeitig).
+      const loadMore = findLoadMoreCommentButtons(cScope)[0];
+      if (loadMore) {
+        loadMore.scrollIntoView({ block: 'center' });
+        await SLEEP(200);
+        if (tryClick(loadMore)) {
+          acted++;
+          const idle = await waitForIdle(cScope);
+          if (!idle) {
+            // Spinner löste sich nicht auf → Request hängt, evtl. gedrosselt.
+            // Erst nach dem zweiten hängenden Versuch abbrechen (Toleranz für
+            // einzelne langsame Antworten).
+            stalls++;
+            if (stalls >= 2) {
+              throttled = 'stall';
+              break;
+            }
+          } else {
+            stalls = 0;
+          }
+        }
+      }
+
+      // Versteckte Antworten – wenige pro Runde, jede einzeln setteln lassen
+      // (statt 6 Klicks im Burst). 6 s Idle-Timeout, da Reply-Ladungen leicht.
+      for (const b of findReplyExpanderButtons(cScope).slice(0, 3)) {
         b.scrollIntoView({ block: 'center' });
         await SLEEP(150);
         if (!tryClick(b)) continue;
         acted++;
-        await waitForIdle(cScope);
+        await waitForIdle(cScope, 6000);
       }
 
-      // Versteckte Antworten ausklappen
-      for (const b of findReplyExpanderButtons(cScope).slice(0, 6)) {
-        b.scrollIntoView({ block: 'center' });
-        await SLEEP(100);
-        if (!tryClick(b)) continue;
-        acted++;
-        await SLEEP(350);
-      }
-      if (acted) await waitForIdle(cScope);
-
-      // Gekürzte Kommentartexte ("… mehr anzeigen") ausklappen
+      // Gekürzte Kommentartexte ("… mehr") ausklappen – rein clientseitig,
+      // keine Netzwerklast, daher unbedenklich in Folge.
       for (const b of findSeeMoreButtons(cScope)) {
         if (!tryClick(b)) continue;
         acted++;
-        await SLEEP(60);
+        await SLEEP(80);
       }
 
       // Ernten, BEVOR die Virtualisierung beim Weiterscrollen Kommentare
@@ -651,38 +715,52 @@
       }
       lastCount = count;
       if (stableRounds >= 3) break;
-      await SLEEP(650);
+      // Sanftere Pause zwischen den Runden – kein Hämmern auf die API
+      await SLEEP(1100);
     }
 
     // Finaler Sweep: wegen der DOM-Virtualisierung einmal komplett von oben
     // nach unten durch die Kommentarliste scrollen und alles einsammeln, was
-    // zwischendurch aus dem DOM geflogen ist.
-    report('Finaler Durchlauf – sammle alle Kommentare ein …');
-    const firstComment = getCommentElements(cScope)[0];
-    (firstComment || cScope).scrollIntoView({ block: 'start' });
-    await SLEEP(500);
+    // zwischendurch aus dem DOM geflogen ist. Bei Drosselung überspringen –
+    // dann wird nur der bisherige Stand exportiert.
     let lastY = -1;
-    for (let step = 0; step < 300 && !cancelled; step++) {
+    if (!throttled && !cancelled) {
+      report('Finaler Durchlauf – sammle alle Kommentare ein …');
+      const firstComment = getCommentElements(cScope)[0];
+      (firstComment || cScope).scrollIntoView({ block: 'start' });
+      await SLEEP(500);
+    }
+    for (let step = 0; step < 300 && !cancelled && !throttled; step++) {
+      const t = detectThrottle();
+      if (t) {
+        throttled = t;
+        break;
+      }
       harvestComments(cScope);
-      // frisch gerenderte gekürzte Texte und versteckte Antworten nachziehen
+      // frisch gerenderte gekürzte Texte und versteckte Antworten nachziehen –
+      // höchstens 2 Reply-Expander pro Schritt, jeweils setteln lassen
       let acted = 0;
       for (const b of findSeeMoreButtons(cScope)) {
         if (tryClick(b)) acted++;
       }
-      for (const b of findReplyExpanderButtons(cScope).slice(0, 4)) {
-        if (tryClick(b)) acted++;
+      for (const b of findReplyExpanderButtons(cScope).slice(0, 2)) {
+        if (!tryClick(b)) continue;
+        acted++;
+        await waitForIdle(cScope, 6000);
       }
-      if (acted) {
-        await SLEEP(700);
-        harvestComments(cScope);
-      }
+      if (acted) harvestComments(cScope);
       window.scrollBy(0, Math.round(window.innerHeight * 0.6));
-      await SLEEP(350);
+      await SLEEP(450);
       if (window.scrollY === lastY) break; // unten angekommen
       lastY = window.scrollY;
       if (step % 5 === 0) {
         report(`Finaler Durchlauf … ${harvested.size} Kommentare erfasst`);
       }
+    }
+
+    if (throttled) {
+      report('LinkedIn drosselt – breche schonend ab und exportiere den bisherigen Stand …');
+      await SLEEP(400);
     }
 
     report('Extrahiere Inhalte …');
@@ -717,6 +795,7 @@
         images: allImages.length,
         chars: markdown.length,
         cancelled,
+        throttled,
       },
       url: post.url,
       ts: Date.now(),

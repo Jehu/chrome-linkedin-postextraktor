@@ -207,9 +207,19 @@ function formatStats(stats) {
   let s = `${stats.topLevel} Kommentare`;
   if (stats.replies) s += ` + ${stats.replies} Antworten`;
   if (stats.images) s += ` · ${stats.images} Bilder`;
-  if (stats.cancelled) s += ' (abgebrochen, Teilergebnis)';
+  if (stats.throttled) s += ' (LinkedIn drosselt – Teilergebnis)';
+  else if (stats.cancelled) s += ' (abgebrochen, Teilergebnis)';
   return s;
 }
+
+const THROTTLE_TEXT = {
+  checkpoint:
+    '⚠️ LinkedIn hat auf eine Sicherheits-/Login-Seite umgeleitet. Der Export wurde gestoppt; nur der bis dahin geladene Stand ist enthalten. Bitte einige Zeit warten, normal weiterbrowsen und es später erneut versuchen.',
+  banner:
+    '⚠️ LinkedIn meldet eine Einschränkung (z. B. zu viele Anfragen). Der Export wurde schonend abgebrochen – das Teilergebnis ist gespeichert. Bitte eine Weile warten, bevor du es erneut versuchst.',
+  stall:
+    '⚠️ LinkedIn lieferte mehrfach keine weiteren Kommentare nach (möglicherweise Drosselung). Der Export wurde gestoppt; das Teilergebnis ist enthalten. Etwas warten und später erneut versuchen.',
+};
 
 // ----------------------------------------------------------------- UI-States
 
@@ -235,7 +245,11 @@ function showResult(text, stats) {
 
   const warn = $('resultWarn');
   const declared = parseInt(String(stats?.declared || '').replace(/[^\d]/g, ''), 10);
-  if (declared && stats && declared > stats.total) {
+  if (stats?.throttled && THROTTLE_TEXT[stats.throttled]) {
+    // Drossel-Hinweis hat Vorrang vor dem reinen Zahlen-Mismatch
+    warn.textContent = THROTTLE_TEXT[stats.throttled];
+    warn.classList.remove('hidden');
+  } else if (declared && stats && declared > stats.total) {
     warn.textContent = `⚠️ LinkedIn meldet ${declared} Kommentare, erfasst wurden ${stats.total}. Eventuell wurden gelöschte/eingeschränkte Kommentare mitgezählt – oder es konnte nicht alles geladen werden.`;
     warn.classList.remove('hidden');
   } else {

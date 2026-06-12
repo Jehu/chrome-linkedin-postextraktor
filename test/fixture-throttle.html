@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>LIPX Throttle-Test</title>
+</head>
+<body>
+<main>
+ <div class="feed-shared-update-v2">
+  <div class="update-components-actor">
+    <span class="update-components-actor__title"><span aria-hidden="true">Max Mustermann</span></span>
+    <span class="update-components-actor__description"><span aria-hidden="true">CEO bei Beispiel GmbH</span></span>
+    <span class="update-components-actor__sub-description"><span aria-hidden="true">3 Wochen •</span></span>
+  </div>
+  <div class="update-components-text">Post-Text für den Throttle-Test.</div>
+  <div class="social-details-social-counts">
+    <span class="social-details-social-counts__reactions-count">10</span>
+    <button class="social-details-social-counts__comments">50 Kommentare</button>
+  </div>
+  <div class="comments-comments-list">
+    <article class="comments-comment-entity" id="c1">
+      <span class="comments-comment-meta__description-title">Erika Musterfrau</span>
+      <span class="comments-comment-meta__description-subtitle">Marketing Lead</span>
+      <time>2 Wo.</time>
+      <div class="comments-comment-item__main-content">Erster Kommentar (vor der Drosselung geladen).</div>
+      <span class="comments-comment-social-bar__reactions-count">3</span>
+    </article>
+    <article class="comments-comment-entity" id="c2">
+      <span class="comments-comment-meta__description-title">Hans Beispiel</span>
+      <span class="comments-comment-meta__description-subtitle">Entwickler</span>
+      <time>1 Wo.</time>
+      <div class="comments-comment-item__main-content">Zweiter Kommentar (vor der Drosselung geladen).</div>
+      <span class="comments-comment-social-bar__reactions-count">1</span>
+    </article>
+    <button id="loadMore" class="comments-comments-list__load-more-comments-button">Weitere Kommentare laden</button>
+  </div>
+ </div>
+</main>
+
+<!-- Container, in den nach dem ersten Klick das Drossel-Banner kommt -->
+<div id="toastZone"></div>
+
+<script>
+// Erster Klick auf "Weitere Kommentare laden" simuliert LinkedIns Rate-Limit:
+// statt neuer Kommentare erscheint ein Toast mit Drossel-Text.
+document.getElementById('loadMore').addEventListener('click', () => {
+  if (document.querySelector('.artdeco-toast-item')) return;
+  const toast = document.createElement('div');
+  toast.className = 'artdeco-toast-item';
+  toast.setAttribute('role', 'alert');
+  toast.textContent = 'Es sind zu viele Anfragen eingegangen. Bitte versuchen Sie es später erneut.';
+  document.getElementById('toastZone').appendChild(toast);
+});
+
+// ---- chrome-API-Stub ----
+window.__lipxStore = {};
+window.__lipxMsgs = [];
+window.chrome = {
+  runtime: {
+    onMessage: { addListener: (f) => { window.__lipxListener = f; } },
+    sendMessage: (m, cb) => { window.__lipxMsgs.push(m); cb && cb(); },
+    lastError: undefined
+  },
+  storage: { local: { set: (o) => { Object.assign(window.__lipxStore, o); return Promise.resolve(); } } }
+};
+</script>
+<script src="../content.js?v=7"></script>
+<script>
+window.addEventListener('load', () => {
+  window.__lipxListener({ action: 'lipx-extract', options: { images: false } }, null, () => {});
+});
+</script>
+</body>
+</html>

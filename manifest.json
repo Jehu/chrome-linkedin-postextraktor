@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn PostExtraktor",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Kopiert den geöffneten LinkedIn-Post samt aller Kommentare, Antworten und Bilder als Markdown – in die Zwischenablage oder als .md-Datei.",
   "permissions": [
     "activeTab",

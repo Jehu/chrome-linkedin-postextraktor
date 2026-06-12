@@ -63,9 +63,19 @@ Browser, es gibt keine Telemetrie und keine externen Server.
   die Extension die Bilder zusätzlich herunter – alles zusammen in
   `Downloads/linkedin-export/<post>/` – und verlinkt sie relativ
   (`./<post>-bild-01.jpg`), sodass die `.md`-Datei dauerhaft funktioniert.
-- **Kein Limit:** Lädt ohne Obergrenze – große Posts können ein bis zwei
+- **Kein Limit:** Lädt ohne Obergrenze – große Posts können ein paar
   Minuten dauern (Fortschrittsanzeige im Popup). Abbrechen exportiert den
   bisherigen Stand.
+- **Schonendes Laden:** Klickt bewusst nur einen Nachlade-Button pro Runde
+  und wartet auf den echten Idle-Zustand, bevor es weitergeht – die
+  Netzwerklast wird serialisiert statt in Bursts abgefeuert. Das schont
+  LinkedIns Server und ist deutlich weniger aggressiv als blindes
+  Dauerscrollen.
+- **Drossel-Erkennung:** Erkennt, wenn LinkedIn eine Einschränkung meldet
+  (Rate-Limit-Banner, Sicherheits-/Login-Umleitung oder mehrfach hängende
+  Ladevorgänge) und **bricht dann schonend ab** statt weiter zu hämmern –
+  der bis dahin geladene Stand wird exportiert, das Popup zeigt einen klaren
+  Hinweis mit der Empfehlung, später erneut zu versuchen.
 - **Robust gegen geschlossenes Popup:** Läuft die Extraktion noch, während das
   Popup zu ist, liegt das Ergebnis beim nächsten Öffnen bereit
   (15 Minuten lang).
@@ -138,10 +148,13 @@ Kommentartext …
 ## Tests
 
 - `test/fixture.html`: Regressionstest mit LinkedIn-nachgebautem DOM
-  (dynamisches Nachladen, versteckte Antworten, gekürzte Texte, chrome-Stub).
-  Ausführen: HTTP-Server im Projektordner starten
+  (dynamisches Nachladen, versteckte Antworten, gekürzte Texte, Bilder,
+  chrome-Stub). Ausführen: HTTP-Server im Projektordner starten
   (`python3 -m http.server 8766`), dann `http://127.0.0.1:8766/test/fixture.html`
   öffnen – das Ergebnis liegt in `window.__lipxStore.lipx_result`.
+- `test/fixture-throttle.html`: prüft die Drossel-Erkennung – nach dem ersten
+  Nachlade-Klick erscheint ein Rate-Limit-Banner; der Export bricht schonend
+  ab (`stats.throttled === 'banner'`) und liefert das Teilergebnis.
 - Live-verifiziert am 12.06.2026 gegen einen echten Post mit 80 Kommentaren
   (44 Top-Level + 34 Antworten erfasst, inkl. DOM-Virtualisierung).
 
