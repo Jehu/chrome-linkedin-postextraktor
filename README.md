@@ -4,6 +4,34 @@ Chrome-Extension (Manifest V3), die den gerade geöffneten LinkedIn-Post **samt
 aller Kommentare und Antworten** als Markdown exportiert – wahlweise in die
 Zwischenablage oder als `.md`-Datei.
 
+## ⚠️ Wichtiger Hinweis: Nutzungsbedingungen & Konto-Risiko
+
+Diese Extension **automatisiert Interaktionen** auf LinkedIn (Ausklappen von
+Kommentaren, Scrollen, Auslesen von Seiteninhalten). Das verstößt sehr
+wahrscheinlich gegen die
+[LinkedIn-Nutzungsbedingungen](https://www.linkedin.com/legal/user-agreement),
+die automatisiertes Auslesen („Scraping") und die Nutzung von Bots oder
+Browser-Automatisierung untersagen.
+
+**Konkret bedeutet das:**
+
+- LinkedIn erkennt automatisiertes Verhalten auch **serverseitig** (z. B.
+  ungewöhnlich schnelle Abfolgen von Nachlade-Requests). Die Nutzung kann zu
+  **Warnungen, vorübergehenden Einschränkungen oder im Extremfall zur
+  dauerhaften Sperrung deines LinkedIn-Kontos** führen.
+- Die Nutzung erfolgt **auf eigenes Risiko**. Es gibt keinerlei Gewähr, dass
+  LinkedIn die Nutzung toleriert.
+- Empfehlung: Die Extension **sparsam einsetzen** (einzelne Posts, keine
+  Massen-Exporte in kurzer Folge) und nur für den **privaten Gebrauch** –
+  z. B. zur Archivierung oder Analyse einzelner Diskussionen, an denen du
+  selbst beteiligt bist.
+- Die exportierten Inhalte (Kommentare, Namen, Profile) sind personenbezogene
+  Daten Dritter. Für Weiterverarbeitung oder Veröffentlichung bist du selbst
+  verantwortlich (Urheberrecht, DSGVO).
+
+Die Extension sendet selbst **keine Daten an Dritte** – alles läuft lokal im
+Browser, es gibt keine Telemetrie und keine externen Server.
+
 ## Features
 
 - **Vollständiges Ausklappen:** Klickt selbstständig so lange auf
@@ -103,8 +131,9 @@ Kommentartext …
 - Die gemeldete Kommentarzahl von LinkedIn enthält teils gelöschte oder
   eingeschränkt sichtbare Kommentare – kleine Abweichungen sind normal
   (Live-Test: 78 erfasst bei „80" gemeldeten, Rest gelöscht/eingeschränkt).
-- Nur für den privaten Gebrauch; das automatisierte Auslesen kann gegen die
-  LinkedIn-Nutzungsbedingungen verstoßen.
+- Zu Nutzungsbedingungen und Konto-Risiko siehe den
+  [wichtigen Hinweis](#%EF%B8%8F-wichtiger-hinweis-nutzungsbedingungen--konto-risiko)
+  oben.
 
 ## Tests
 
