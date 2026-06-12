@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">in</div>
+    <h1>PostExtraktor</h1>
+  </header>
+
+  <div id="hint" class="hint hidden"></div>
+
+  <div id="actions">
+    <button id="copyBtn" class="primary">📋 Als Markdown kopieren</button>
+    <button id="saveBtn" class="secondary">💾 Als .md-Datei speichern</button>
+  </div>
+
+  <div id="progress" class="hidden">
+    <div class="spinner"></div>
+    <div id="progressText">Starte …</div>
+    <button id="cancelBtn" class="link-btn">Abbrechen &amp; bisherigen Stand exportieren</button>
+  </div>
+
+  <div id="result" class="hidden">
+    <div id="resultText" class="result-text"></div>
+    <div id="resultWarn" class="warn hidden"></div>
+    <div class="result-actions">
+      <button id="copyAgainBtn" class="secondary small">📋 Kopieren</button>
+      <button id="saveAgainBtn" class="secondary small">💾 Speichern</button>
+    </div>
+  </div>
+
+  <footer>Klappt automatisch alle Kommentare &amp; Antworten aus – das kann bei großen Posts etwas dauern.</footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

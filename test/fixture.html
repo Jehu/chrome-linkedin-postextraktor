@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>LIPX Fixture-Test</title>
+</head>
+<body>
+<main>
+ <div class="feed-shared-update-v2">
+  <div class="update-components-actor">
+    <span class="update-components-actor__title"><span aria-hidden="true">Max Mustermann</span><span class="visually-hidden">Max Mustermann</span></span>
+    <span class="update-components-actor__description"><span aria-hidden="true">CEO bei Beispiel GmbH</span></span>
+    <span class="update-components-actor__sub-description"><span aria-hidden="true">3 Wochen • Bearbeitet •</span></span>
+  </div>
+  <div class="update-components-text">Das ist der Post-Text mit wichtigen Insights über KI und Browser-Extensions.</div>
+  <div class="social-details-social-counts">
+    <span class="social-details-social-counts__reactions-count">142</span>
+    <button class="social-details-social-counts__comments">4 Kommentare</button>
+    <span>2 Mal geteilt</span>
+  </div>
+  <div class="comments-comments-list">
+    <article class="comments-comment-entity" id="c1">
+      <span class="comments-comment-meta__description-title">Erika MusterfrauErika Musterfrau</span>
+      <span class="comments-comment-meta__description-subtitle">Marketing Lead bei Acme</span>
+      <time>2 Wo.</time>
+      <div class="comments-comment-item__main-content">Toller Beitrag, danke fürs Teilen!</div>
+      <span class="comments-comment-social-bar__reactions-count">3</span>
+      <button>Gefällt mir</button><button>Antworten</button>
+      <div class="replies-slot"><button id="showReplies">1 Antwort anzeigen</button></div>
+    </article>
+    <article class="comments-comment-entity" id="c2">
+      <span class="comments-comment-meta__description-title">Hans BeispielHans Beispiel</span>
+      <span class="comments-comment-meta__description-subtitle">Entwickler</span>
+      <time>1 Wo.</time>
+      <div class="comments-comment-item__main-content"><span id="c2text">Langer Kommentar, der gekürzt…</span> <button id="seeMoreC2">…mehr anzeigen</button></div>
+      <span class="comments-comment-social-bar__reactions-count">1</span>
+      <button>Gefällt mir</button><button>Antworten</button>
+    </article>
+    <button id="loadMore" class="comments-comments-list__load-more-comments-button">Weitere Kommentare laden</button>
+  </div>
+ </div>
+</main>
+
+<script>
+// ---- Dynamik des Fixtures: simuliert LinkedIn-Nachladeverhalten ----
+document.getElementById('showReplies').addEventListener('click', (e) => {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<article class="comments-comment-entity comments-comment-entity--reply">
+      <span class="comments-comment-meta__description-title">Max MustermannMax Mustermann</span>
+      <span class="comments-comment-meta__description-subtitle">CEO bei Beispiel GmbH</span>
+      <time>2 Wo.</time>
+      <div class="comments-comment-item__main-content">Danke Erika, freut mich!</div>
+      <span class="comments-comment-social-bar__reactions-count">2</span>
+    </article>`;
+  e.target.closest('.replies-slot').appendChild(tpl.content.firstElementChild);
+  e.target.remove();
+});
+
+document.getElementById('seeMoreC2').addEventListener('click', (e) => {
+  document.getElementById('c2text').textContent = 'Langer Kommentar, der jetzt vollständig ausgeklappt ist. Sehr spannendes Thema!';
+  e.target.remove();
+});
+
+document.getElementById('loadMore').addEventListener('click', (e) => {
+  const list = document.querySelector('.comments-comments-list');
+  // Verzögert wie echtes Nachladen
+  setTimeout(() => {
+    for (const [nm, txt] of [['Carla DritteCarla Dritte', 'Spannend! Folge ich.'], ['Dirk VierterDirk Vierter', 'Sehe ich anders, aber guter Punkt.']]) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = `<article class="comments-comment-entity">
+          <span class="comments-comment-meta__description-title">${nm}</span>
+          <span class="comments-comment-meta__description-subtitle">Beraterin</span>
+          <time>3 Tage</time>
+          <div class="comments-comment-item__main-content">${txt}</div>
+          <button>Gefällt mir</button><button>Antworten</button>
+        </article>`;
+      list.appendChild(tpl.content.firstElementChild);
+    }
+    e.target.remove();
+  }, 400);
+});
+
+// ---- chrome-API-Stub ----
+window.__lipxStore = {};
+window.__lipxMsgs = [];
+window.chrome = {
+  runtime: {
+    onMessage: { addListener: (f) => { window.__lipxListener = f; } },
+    sendMessage: (m, cb) => { window.__lipxMsgs.push(m); cb && cb(); },
+    lastError: undefined
+  },
+  storage: { local: { set: (o) => { Object.assign(window.__lipxStore, o); return Promise.resolve(); } } }
+};
+</script>
+<script src="../content.js?v=3"></script>
+<script>
+window.addEventListener('load', () => {
+  window.__lipxListener({ action: 'lipx-extract' }, null, () => {});
+});
+</script>
+</body>
+</html>
