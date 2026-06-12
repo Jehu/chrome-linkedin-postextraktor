@@ -12,6 +12,7 @@
 
   let cancelled = false;
   let running = false;
+  let includeImages = true;
 
   // ---------------------------------------------------------------- Messaging
 
@@ -28,6 +29,7 @@
     if (msg?.action === 'lipx-extract') {
       if (!running) {
         cancelled = false;
+        includeImages = msg.options?.images !== false;
         run().catch((err) => reportError(err?.message || String(err)));
       }
       sendResponse({ ok: true, alreadyRunning: running });
@@ -114,6 +116,7 @@
 
   // Bilder des Posts selbst (ohne Kommentarbereich)
   function collectPostImages(root) {
+    if (!includeImages) return [];
     const candidates = [
       ...root.querySelectorAll(
         '.update-components-image img, .update-components-carousel img, ' +
@@ -144,6 +147,7 @@
 
   // Bilder eines einzelnen Kommentars (ohne die seiner verschachtelten Replies)
   function collectCommentImages(el) {
+    if (!includeImages) return [];
     const sel =
       'article.comments-comment-entity, article.comments-comment-item, .comments-comment-item';
     const urls = [];

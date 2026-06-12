@@ -14,6 +14,14 @@ async function init() {
   $('copyBtn').addEventListener('click', () => start('copy'));
   $('saveBtn').addEventListener('click', () => start('save'));
   $('cancelBtn').addEventListener('click', cancel);
+
+  // Bilder-Option laden und Änderungen persistieren (Standard: an)
+  chrome.storage.local.get('lipx_opt_images').then((st) => {
+    $('imagesOpt').checked = st.lipx_opt_images !== false;
+  });
+  $('imagesOpt').addEventListener('change', () => {
+    chrome.storage.local.set({ lipx_opt_images: $('imagesOpt').checked });
+  });
   $('copyAgainBtn').addEventListener('click', () => lastResult && copyToClipboard(lastResult));
   $('saveAgainBtn').addEventListener('click', () => lastResult && downloadMarkdown(lastResult));
 
@@ -75,7 +83,11 @@ async function start(m) {
   showProgress('Starte Extraktion …');
   try {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
-    chrome.tabs.sendMessage(tabId, { action: 'lipx-extract' }, () => void chrome.runtime.lastError);
+    chrome.tabs.sendMessage(
+      tabId,
+      { action: 'lipx-extract', options: { images: $('imagesOpt').checked } },
+      () => void chrome.runtime.lastError
+    );
   } catch (err) {
     showError('Konnte den Content-Script nicht laden: ' + (err?.message || err));
   }

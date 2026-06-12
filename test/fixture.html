@@ -94,7 +94,7 @@ window.chrome = {
   storage: { local: { set: (o) => { Object.assign(window.__lipxStore, o); return Promise.resolve(); } } }
 };
 </script>
-<script src="../content.js?v=4"></script>
+<script src="../content.js?v=5"></script>
 <script>
 window.addEventListener('load', () => {
   window.__lipxListener({ action: 'lipx-extract' }, null, () => {});
