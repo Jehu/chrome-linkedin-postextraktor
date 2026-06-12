@@ -13,6 +13,7 @@
     <span class="update-components-actor__sub-description"><span aria-hidden="true">3 Wochen • Bearbeitet •</span></span>
   </div>
   <div class="update-components-text">Das ist der Post-Text mit wichtigen Insights über KI und Browser-Extensions.</div>
+  <div class="update-components-image"><img src="../icons/icon128.png" alt="Post-Bild"></div>
   <div class="social-details-social-counts">
     <span class="social-details-social-counts__reactions-count">142</span>
     <button class="social-details-social-counts__comments">4 Kommentare</button>
@@ -20,10 +21,11 @@
   </div>
   <div class="comments-comments-list">
     <article class="comments-comment-entity" id="c1">
+      <img src="../icons/icon16.png?profile-displayphoto-shrink" alt="Avatar" class="avatar">
       <span class="comments-comment-meta__description-title">Erika MusterfrauErika Musterfrau</span>
       <span class="comments-comment-meta__description-subtitle">Marketing Lead bei Acme</span>
       <time>2 Wo.</time>
-      <div class="comments-comment-item__main-content">Toller Beitrag, danke fürs Teilen!</div>
+      <div class="comments-comment-item__main-content">Toller Beitrag, danke fürs Teilen! <img src="../icons/icon128.png?kommentarbild" alt="Kommentarbild"></div>
       <span class="comments-comment-social-bar__reactions-count">3</span>
       <button>Gefällt mir</button><button>Antworten</button>
       <div class="replies-slot"><button id="showReplies">1 Antwort anzeigen</button></div>
@@ -92,7 +94,7 @@ window.chrome = {
   storage: { local: { set: (o) => { Object.assign(window.__lipxStore, o); return Promise.resolve(); } } }
 };
 </script>
-<script src="../content.js?v=3"></script>
+<script src="../content.js?v=4"></script>
 <script>
 window.addEventListener('load', () => {
   window.__lipxListener({ action: 'lipx-extract' }, null, () => {});

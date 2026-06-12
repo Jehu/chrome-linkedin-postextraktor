@@ -92,6 +92,70 @@
     return true;
   }
 
+  // ---------------------------------------------------------------- Bilder
+
+  // Avatare, Emojis, Reaktions-Icons und Profilfotos aussortieren
+  function isContentImage(img) {
+    const src = img.currentSrc || img.src || '';
+    if (!/^https?:\/\//.test(src)) return false;
+    if (/profile-displayphoto|profile-framedphoto|EntityPhoto|ghost-person|emoji|reactions?-|company-logo/i.test(src)) {
+      return false;
+    }
+    if (/avatar|presence|profile/i.test(img.className)) return false;
+    const r = img.getBoundingClientRect();
+    // Kleine Icons raus; naturalWidth als Fallback für nicht gerenderte Bilder
+    if (r.width > 0 && r.width < 80 && img.naturalWidth < 160) return false;
+    return true;
+  }
+
+  function imageUrl(img) {
+    return img.currentSrc || img.src || img.getAttribute('data-delayed-url') || '';
+  }
+
+  // Bilder des Posts selbst (ohne Kommentarbereich)
+  function collectPostImages(root) {
+    const candidates = [
+      ...root.querySelectorAll(
+        '.update-components-image img, .update-components-carousel img, ' +
+          '.feed-shared-image img, .feed-shared-carousel img, ' +
+          '[class*="update-components-mini-update"] img'
+      ),
+    ];
+    // Fallback: großflächige Bilder im Post-Bereich
+    if (!candidates.length) {
+      candidates.push(
+        ...[...root.querySelectorAll('img')].filter((img) => {
+          if (img.closest('.comments-comments-list, [class*="comment"]')) return false;
+          if (img.closest('[class*="actor"], [class*="social-details"]')) return false;
+          const r = img.getBoundingClientRect();
+          return r.width >= 200 || img.naturalWidth >= 400;
+        })
+      );
+    }
+    const urls = [];
+    for (const img of candidates) {
+      if (img.closest('.comments-comments-list')) continue;
+      if (!isContentImage(img)) continue;
+      const src = imageUrl(img);
+      if (src && !urls.includes(src)) urls.push(src);
+    }
+    return urls;
+  }
+
+  // Bilder eines einzelnen Kommentars (ohne die seiner verschachtelten Replies)
+  function collectCommentImages(el) {
+    const sel =
+      'article.comments-comment-entity, article.comments-comment-item, .comments-comment-item';
+    const urls = [];
+    for (const img of el.querySelectorAll('img')) {
+      if (img.closest(sel) !== el) continue; // gehört zu einem Reply
+      if (!isContentImage(img)) continue;
+      const src = imageUrl(img);
+      if (src && !urls.includes(src)) urls.push(src);
+    }
+    return urls;
+  }
+
   function buttonsIn(scope) {
     return [...(scope || document).querySelectorAll('button')].filter((b) => {
       if (!isVisible(b)) return false;
@@ -276,7 +340,8 @@
       )
     );
     const reactions = textOf(el.querySelector('[class*="reactions-count"]'));
-    return { name, headline, time, body, reactions };
+    const images = collectCommentImages(el);
+    return { name, headline, time, body, reactions, images };
   }
 
   // LinkedIn VIRTUALISIERT lange Kommentarlisten: beim Scrollen fliegen
@@ -311,11 +376,15 @@
         parentKey: parentKey || prev?.parentKey || null,
         seq: prev?.seq ?? harvestSeq++,
         isReplyClass: isReplyClass || prev?.isReplyClass || false,
-        // Längerer Body gewinnt (nach "… mehr"-Expansion)
-        data:
-          prev && (prev.data.body || '').length > (data.body || '').length
-            ? prev.data
-            : data,
+        // Längerer Body gewinnt (nach "… mehr"-Expansion), Bilder vereinigen
+        data: (() => {
+          const best =
+            prev && (prev.data.body || '').length > (data.body || '').length
+              ? prev.data
+              : data;
+          const images = [...new Set([...(prev?.data.images || []), ...(data.images || [])])];
+          return { ...best, images };
+        })(),
       });
     }
     return harvested.size;
@@ -408,6 +477,7 @@
       reactions,
       declaredComments,
       reposts,
+      images: collectPostImages(root),
       url: location.origin + location.pathname,
     };
   }
@@ -422,23 +492,28 @@
       .join('\n');
   }
 
+  function imageLines(urls) {
+    return (urls || []).map((u, i) => `![Bild ${i + 1}](${u})`);
+  }
+
   function renderComment(node, depth) {
     const c = node.data;
     const metaParts = [];
     if (c.time) metaParts.push(c.time);
     if (c.reactions) metaParts.push(`${c.reactions} Reaktionen`);
     const meta = metaParts.length ? `*${metaParts.join(' · ')}*` : '';
+    const imgs = imageLines(c.images);
 
     let block;
     if (depth === 0) {
       const head = `### ${c.name || 'Unbekannt'}`;
       const sub = c.headline ? `*${c.headline}*` : '';
-      block = [head, sub, meta, '', c.body || '*(kein Text)*']
+      block = [head, sub, meta, '', c.body || '*(kein Text)*', ...imgs]
         .filter((l, i) => l !== '' || i === 3)
         .join('\n');
     } else {
       const head = `**↳ ${c.name || 'Unbekannt'}**${c.headline ? ` — *${c.headline}*` : ''}`;
-      const inner = [head, meta, '', c.body || '*(kein Text)*']
+      const inner = [head, meta, '', c.body || '*(kein Text)*', ...imgs]
         .filter((l, i) => l !== '' || i === 2)
         .join('\n');
       block = quoted(inner, depth);
@@ -465,6 +540,10 @@
     lines.push('---');
     lines.push('');
     lines.push(post.body || '*(kein Post-Text gefunden)*');
+    if (post.images?.length) {
+      lines.push('');
+      lines.push(...imageLines(post.images));
+    }
     lines.push('');
     lines.push('---');
     lines.push('');
@@ -609,14 +688,29 @@
     const counts = countTree(tree);
     const markdown = buildMarkdown(post, tree, counts);
 
+    // Alle Bild-URLs in Dokument-Reihenfolge – das Popup lädt sie im
+    // Speichern-Modus herunter und ersetzt die URLs durch relative Pfade.
+    const allImages = [...(post.images || [])];
+    const collectImgs = (nodes) => {
+      for (const n of nodes) {
+        for (const u of n.data.images || []) {
+          if (!allImages.includes(u)) allImages.push(u);
+        }
+        collectImgs(n.children);
+      }
+    };
+    collectImgs(tree);
+
     const result = {
       markdown,
+      images: allImages,
       stats: {
         author: post.name || 'linkedin-post',
         topLevel: counts.top,
         replies: counts.replies,
         total: counts.total,
         declared: post.declaredComments,
+        images: allImages.length,
         chars: markdown.length,
         cancelled,
       },

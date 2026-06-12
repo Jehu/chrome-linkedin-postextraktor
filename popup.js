@@ -136,10 +136,41 @@ async function copyToClipboard(result) {
 }
 
 function downloadMarkdown(result) {
-  const blob = new Blob([result.markdown], { type: 'text/markdown;charset=utf-8' });
+  const images = result.images || [];
+
+  // Ohne Bilder: einfacher Einzeldatei-Download wie gehabt
+  if (!images.length || !chrome.downloads) {
+    downloadBlob(result.markdown, buildFilename(result));
+    return;
+  }
+
+  // Mit Bildern: alles in einen Unterordner linkedin-export/<post>/ legen,
+  // Bilder über chrome.downloads (kein CORS-Problem, Browser lädt direkt)
+  // und die CDN-URLs im Markdown durch relative Pfade ersetzen.
+  const base = buildFilename(result).replace(/\.md$/, '');
+  const folder = `linkedin-export/${base}`;
+  let md = result.markdown;
+  images.forEach((url, i) => {
+    const name = `${base}-bild-${String(i + 1).padStart(2, '0')}.jpg`;
+    md = md.split(url).join(`./${name}`);
+    chrome.downloads.download({ url, filename: `${folder}/${name}`, conflictAction: 'uniquify' });
+  });
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+  chrome.downloads.download(
+    { url: blobUrl, filename: `${folder}/${base}.md`, conflictAction: 'uniquify' },
+    () => {
+      void chrome.runtime.lastError;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    }
+  );
+}
+
+function downloadBlob(text, filename) {
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = buildFilename(result);
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -163,6 +194,7 @@ function formatStats(stats) {
   if (!stats) return '';
   let s = `${stats.topLevel} Kommentare`;
   if (stats.replies) s += ` + ${stats.replies} Antworten`;
+  if (stats.images) s += ` · ${stats.images} Bilder`;
   if (stats.cancelled) s += ' (abgebrochen, Teilergebnis)';
   return s;
 }

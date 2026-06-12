@@ -26,6 +26,13 @@ Zwischenablage oder als `.md`-Datei.
 - **Markdown mit allen Metadaten:** Autor, Headline, Zeitstempel, Post-Text,
   Reaktions-/Kommentar-/Repost-Zahlen; Kommentare mit Autor, Headline, Zeit
   und Reaktionen; Antworten verschachtelt als Blockquotes.
+- **Bilder inklusive:** Post- und Kommentarbilder werden erkannt (Avatare,
+  Emojis und Reaktions-Icons werden herausgefiltert). Beim **Kopieren**
+  landen sie als `![Bild](CDN-URL)` im Markdown (Achtung: LinkedIn-CDN-URLs
+  sind signiert und laufen nach einiger Zeit ab). Beim **Speichern** lädt
+  die Extension die Bilder zusätzlich herunter – alles zusammen in
+  `Downloads/linkedin-export/<post>/` – und verlinkt sie relativ
+  (`./<post>-bild-01.jpg`), sodass die `.md`-Datei dauerhaft funktioniert.
 - **Kein Limit:** Lädt ohne Obergrenze – große Posts können ein bis zwei
   Minuten dauern (Fortschrittsanzeige im Popup). Abbrechen exportiert den
   bisherigen Stand.
